@@ -26,26 +26,28 @@ def loadFeed(feed)
     begin
         xml = open(feed["url"], HEADERS_HASH)
     rescue  Exception => e  
-        print "error fetching ", feed["name"], "\n"
-        print e, "\n\n"
+        STDERR.puts "error fetching ", feed["name"]
+        STDERR.puts "\t", e, "\n"
         return nil
     end
 
     scrapper = Scrappers.getScrapper(xml.read)
     if scrapper == nil
-        print "Could not scrape ", feed["name"], "\n"
+        STDERR.puts "Could not scrape ", feed["name"]
     end
     scrapper
 end 
 
-pp (getCatalog(ARGF.read).map do | (catName, category) | 
-    [
-        catName, 
-        category.map { |dict | [dict["name"], loadFeed(dict)] }
-            .select { |(_, scrapper)| scrapper != nil }
-            .map { | (feedName, scrapper) | [feedName, scrapper.feedLastUpdated()] }
-            .to_h
-    ]
-end
-    .to_h)
+(PList.serialize (getCatalog(ARGF.read).map do | (catName, category) | 
+        [
+            catName, 
+            category.map { |dict | [dict["name"], loadFeed(dict)] }
+                .select { |(_, scrapper)| scrapper != nil }
+                .map { | (feedName, scrapper) | [feedName, scrapper.feedLastUpdated().to_s] }
+                .to_h
+        ]
+    end
+    .to_h))
+    .write $stdout
+
     
