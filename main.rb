@@ -6,6 +6,11 @@ require 'pp'
 
 require './plist.rb'
 
+require './scrappers.rb'
+require './fancy-scrapper.rb'
+require './scruffy-scrapper.rb'
+
+
 # TODO: 
 # * Handle redirections at all for feeds (http to https specifically though)
 # * Handle garbage (or things REXML thinks are garbage) XML (maybe switch to a dirty regexp approach?)
@@ -20,31 +25,25 @@ end
 def loadFeed(feed)
     begin
         xml = open(feed["url"], HEADERS_HASH)
-        feed = REXML::Document.new(xml.read)
-        return feed
     rescue  Exception => e  
-        print "error scraping ", feed["name"], "\n"
+        print "error fetching ", feed["name"], "\n"
         print e, "\n\n"
         return nil
     end
+
+    scrapper = Scrappers.getScrapper(xml.read)
+    if scrapper == nil
+        print "Could not scrape ", feed["name"], "\n"
+    end
+    scrapper
 end 
-
-
-PUBDATE_XPATH = "//*[local-name()='pubDate']|//*[local-name()='updated']|//*[local-name()='published']|//*[local-name()='date']"
-
-def feedLastUpdated(feedDoc) 
-    XPath.match(feedDoc, PUBDATE_XPATH)
-         .map{ |pd| Date.parse pd.text }
-         .sort
-         .last
-end
 
 pp (getCatalog(ARGF.read).map do | (catName, category) | 
     [
         catName, 
         category.map { |dict | [dict["name"], loadFeed(dict)] }
-            .select { |(_, feed)| feed != nil }
-            .map { | (feedName, feed) | [feedName, feedLastUpdated(feed)] }
+            .select { |(_, scrapper)| scrapper != nil }
+            .map { | (feedName, scrapper) | [feedName, scrapper.feedLastUpdated()] }
             .to_h
     ]
 end

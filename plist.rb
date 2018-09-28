@@ -26,6 +26,8 @@ module PList
     end
     
     def PList.parse(doc)
+        puts doc
+
         PList.node(XPath.match(doc, "/plist/*").first)
     end
 end    
