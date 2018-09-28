@@ -6,30 +6,29 @@ require 'pp'
 
 require './plist.rb'
 
-# TODO: replace this with reading from stdin or a file
-PLIST_URL = "https://raw.githubusercontent.com/brentsimmons/NetNewsWire/master/NetNewsWire/FeedList/FeedList.plist"
-#PLIST_URL = "dummy.plist"
-
+# TODO: 
+# * Handle redirections at all for feeds (http to https specifically though)
+# * Handle garbage (or things REXML thinks are garbage) XML (maybe switch to a dirty regexp approach?)
+# * Handle JSON feeds at all
 
 HEADERS_HASH = {"User-Agent" => "Ruby/#{RUBY_VERSION}; feed age"}
 
-
-def getCatalog(uri)
-    return  PList.parse(REXML::Document.new(open(uri)))
+def getCatalog(doc)
+    return  PList.parse(REXML::Document.new(doc))
 end
-
-
 
 def loadFeed(feed)
     begin
         xml = open(feed["url"], HEADERS_HASH)
         feed = REXML::Document.new(xml.read)
         return feed
-    rescue
+    rescue  Exception => e  
         print "error scraping ", feed["name"], "\n"
+        print e, "\n\n"
         return nil
     end
 end 
+
 
 PUBDATE_XPATH = "//*[local-name()='pubDate']|//*[local-name()='updated']|//*[local-name()='published']|//*[local-name()='date']"
 
@@ -40,7 +39,7 @@ def feedLastUpdated(feedDoc)
          .last
 end
 
-pp (getCatalog(PLIST_URL).map do | (catName, category) | 
+pp (getCatalog(ARGF.read).map do | (catName, category) | 
     [
         catName, 
         category.map { |dict | [dict["name"], loadFeed(dict)] }
