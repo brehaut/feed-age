@@ -1,20 +1,21 @@
 require 'rubygems'
-require 'feedjira'
 require 'open-uri'
-require 'nokogiri'
+require 'rexml/document'
+require 'date'
+require 'pp'
 
 require './plist.rb'
 
 # TODO: replace this with reading from stdin or a file
-# PLIST_URL = "https://raw.githubusercontent.com/brentsimmons/NetNewsWire/master/NetNewsWire/FeedList/FeedList.plist"
-PLIST_URL = "dummy.plist"
+PLIST_URL = "https://raw.githubusercontent.com/brentsimmons/NetNewsWire/master/NetNewsWire/FeedList/FeedList.plist"
+# PLIST_URL = "dummy.plist"
 
 
 HEADERS_HASH = {"User-Agent" => "Ruby/#{RUBY_VERSION}; feed age"}
 
 
 def getCatalog(uri)
-    return  PList.parse(Nokogiri::XML(open(uri)))
+    return  PList.parse(REXML::Document.new(open(uri)))
 end
 
 
@@ -22,7 +23,7 @@ end
 def loadFeed(feed)
     begin
         xml = open(feed["url"], HEADERS_HASH)
-        feed = Feedjira::Feed.parse(xml.read)
+        feed = REXML::Document.new(xml.read)
         return feed
     rescue
         print "error scraping ", feed["name"]
@@ -30,29 +31,23 @@ def loadFeed(feed)
     end
 end 
 
-def feedLastUpdated(feed) 
-    if feed.respond_to? :published
-        return feed.published
-    elsif feed.respond_to? :last_modified
-        return feed.last_modified
-    end
+PUBDATE_XPATH = "//pubDate|//updated|//published"
 
-    if feed.entries.length == 0 
-        return nil
-    end
-
-    first = feed.entries.first
-
-    if first.respond_to? :published
-        return first.published
-    end 
+def feedLastUpdated(feedDoc) 
+    XPath.match(feedDoc, PUBDATE_XPATH)
+         .map{ |pd| Date.parse pd.text }
+         .sort
+         .last
 end
 
-
-getCatalog(PLIST_URL).each do | (name, category) | 
-    print "category: ", name, "\n"
-    print category.map { |dict | loadFeed(dict) }
-            .select { |feed| feed != nil }
-            .map { |feed | feedLastUpdated(feed) } 
-    print "\n\n"
+pp (getCatalog(PLIST_URL).map do | (catName, category) | 
+    [
+        catName, 
+        category.map { |dict | [dict["name"], loadFeed(dict)] }
+            .select { |(_, feed)| feed != nil }
+            .map { | (feedName, feed) | [feedName, feedLastUpdated(feed)] }
+            .to_h
+    ]
 end
+    .to_h)
+    

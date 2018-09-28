@@ -1,12 +1,15 @@
+require 'rexml/document'
+include REXML
+
 # a partial implementation of a PList parser; just enough to 
 # parse the FeedList.plist from NNW
 module PList 
     def PList.array(array) 
-        array.xpath("./*").map { | node |  PList.node(node) }.to_a
+        XPath.match(array, "./*").map { | node |  PList.node(node) }.to_a
     end
     
     def PList.dict(dict) 
-        dict.xpath("./*")
+        XPath.match(dict, "./*")
             .select { | elem | elem.name == "key" }
             .map { | elem | [elem.text, PList.node(elem.next_element)] }
             .to_h    
@@ -23,6 +26,6 @@ module PList
     end
     
     def PList.parse(doc)
-        PList.node(doc.xpath("/plist/*")[0])
+        PList.node(XPath.match(doc, "/plist/*").first)
     end
 end    
